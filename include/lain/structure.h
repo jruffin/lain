@@ -17,6 +17,12 @@ static auto& getThreadContainerStack()
     return _stack;
 }
 
+template <typename Serializer>
+struct MakeContext
+{
+    typedef Serializer SerializerType;
+};
+
 struct AbstractSerializer
 {
     virtual ~AbstractSerializer() {}
@@ -44,7 +50,6 @@ class ContainerBase
             // Initialize the TLS, push this onto
             // the thread's current structure stack
             getThreadContainerStack().push(this);
-            std::cout << "pushing " << (void*) (this) << " onto the stack" << std::endl;
         }
 
         void _lain_initDone()
@@ -78,7 +83,6 @@ struct FieldBase : public AbstractField
     {
         auto stack = getThreadContainerStack();
         if (!stack.empty()) {
-            std::cout << "adding field " << (void*) (this) << std::endl;
             stack.top()->_lain_addField(*this);
         }
     }
@@ -106,24 +110,12 @@ class Field : public FieldBase
 struct StructureStart {};
 struct StructureEnd {};
 
-template <typename _SerializerType>
-class Structure :
-    public AbstractField,
+template <typename Context>
+class StructureBase :
+    public FieldBase,
     public ContainerBase
 {
     public:
-        // This context typedef must be passed as a template
-        // argument to all fields in the container.
-        typedef struct {
-            typedef _SerializerType SerializerType;
-        } C;
-
-        Structure()
-        {
-            // Necessary to pop the current structure from the stack
-            //_lain_initDone();
-        }
-
         void read(AbstractSerializer& s) override
         {
             std::for_each(_lain_fields.begin(), _lain_fields.end(),
@@ -132,14 +124,26 @@ class Structure :
 
         void write(AbstractSerializer& s) override
         {
-            s.as<_SerializerType>().write(StructureStart());
+            s.as<typename Context::SerializerType>().write(StructureStart());
 
             std::for_each(_lain_fields.begin(), _lain_fields.end(),
                     [&s](auto& it) { it->write(s); });
 
-            s.as<_SerializerType>().write(StructureEnd());
+            s.as<typename Context::SerializerType>().write(StructureEnd());
         }
 };
+
+template <typename Context, template <typename> typename StructureType>
+struct Structure
+: public StructureBase<Context>,
+  public StructureType<Context>
+{
+    Structure()
+    {
+        StructureBase<Context>::_lain_initDone();
+    }
+};
+
 
 struct COutSerializer : public AbstractSerializer
 {
@@ -157,7 +161,7 @@ struct COutSerializer : public AbstractSerializer
 template <>
 void COutSerializer::write<StructureStart>(const StructureStart& d)
 {
-    std::cout << "--- STRUCTURE START ---" << std::endl;
+    std::cout << std::endl << "--- STRUCTURE START ---" << std::endl;
 }
 
 template <>
