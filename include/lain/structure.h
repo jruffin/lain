@@ -4,27 +4,28 @@
 #include <algorithm>
 #include <memory>
 
+#include <iostream>
+
 namespace lain {
 
-static auto getThreadContainerStack()
+class ContainerBase;
+class AbstractField;
+
+static auto& getThreadContainerStack()
 {
-    static thread_local std::stack<AbstractContainerBase*> _stack;
+    static thread_local std::stack<ContainerBase*> _stack;
     return _stack;
 }
 
-struct AbstractContainerBase
-{
-    void _lain_addField(AbstractField& f) = 0;
-};
-
 struct AbstractSerializer
 {
+    virtual ~AbstractSerializer() {}
+
     template <typename T>
-    T& castTo()
+    T& as()
     {
         return dynamic_cast<T&>(*this);
     }
-
 };
 
 struct AbstractField
@@ -35,54 +36,7 @@ struct AbstractField
     virtual void write(AbstractSerializer&) = 0;
 };
 
-template <typename SerializerType, typename FieldType>
-class FieldTypeErasure : public AbstractField
-{
-    public:
-        FieldTypeErasure(FieldType& f)
-            : heldField(f)
-        {
-        }
-
-        void read(AbstractSerializer& s) override
-        {
-            s.castTo<SerializerType>().read<FieldType>(heldField);
-        }
-
-        void write(AbstractSerializer& s) override
-        {
-            s.castTo<SerializerType>().write<FieldType>(heldField);
-        }
-
-    private:
-        FieldType& heldField;
-}
-
-template <typename Context, typename FieldType>
-struct FieldBase
-{
-    FieldBase()
-    {
-        auto stack = getThreadContainerStack();
-
-        if (!stack.empty()) {
-            auto typeErasedField = new FieldTypeErasure<C::SerializerType, FieldType>(f);
-            stack.top()->_lain_addField(typeErasedField);
-        }
-    }
-
-    virtual void ~FieldBase() {}
-}
-
-template <typename Context, typename T>
-class Field : public FieldBase<Context, Field<T>>
-{
-    public:
-        T value;
-}
-
-template <typename SerializerType>
-class ContainerBase : public AbstractContainerBase
+class ContainerBase
 {
     public:
         ContainerBase()
@@ -90,27 +44,8 @@ class ContainerBase : public AbstractContainerBase
             // Initialize the TLS, push this onto
             // the thread's current structure stack
             getThreadContainerStack().push(this);
+            std::cout << "pushing " << (void*) (this) << " onto the stack" << std::endl;
         }
-
-        // This context typedef must be passed as a template
-        // argument to all fields in the container.
-        struct C {
-            typedef ContainerBase<SerializerType> ContainerType;
-            typedef SerializerType SerializerType;
-        };
-
-
-    protected:
-        friend template <typename C, typename F> class Context;
-
-        void _lain_addField(std::unique_ptr<AbstractField>&& f) override
-        {
-            _lain_fields.push_back(f);
-        }
-
-        // TODO implement the operator= and such
-        // to *not* copy the contents of _lain_fields
-        // but reinitialize the list instead
 
         void _lain_initDone()
         {
@@ -121,36 +56,115 @@ class ContainerBase : public AbstractContainerBase
             }
         }
 
-        std::list< std::unique_ptr<AbstractField> > _lain_fields;
+    protected:
+        friend class FieldBase;
+
+        void _lain_addField(AbstractField& f)
+        {
+            _lain_fields.push_back(&f);
+        }
+
+        // TODO implement the operator= and such
+        // to *not* copy the contents of _lain_fields
+        // but reinitialize the list instead
+
+
+        std::list<AbstractField*> _lain_fields;
 };
 
-
-template <typename StructType, typename SerializerType>
-class Structure : public AbstractField, public ContainerBase, public StructType
+struct FieldBase : public AbstractField
 {
-    Structure() {
-        // Necessary to pop the current structure from the stack
-        _lain_initDone();
+    FieldBase()
+    {
+        auto stack = getThreadContainerStack();
+        if (!stack.empty()) {
+            std::cout << "adding field " << (void*) (this) << std::endl;
+            stack.top()->_lain_addField(*this);
+        }
     }
 
-    void read(AbstractSerializer& s) override
-    {
-        std::for_each(_lain_fields.begin(), _lain_fields.end(),
-                [s](auto& it) { it->read(s) });
-    }
-
-    void write(AbstractSerializer& s) override
-    {
-        std::for_each(_lain_fields.begin(), _lain_fields.end(),
-                [s](auto& it) { it->write(s) });
-    }
+    virtual ~FieldBase() {}
 };
 
-struct Foo : public lain::Structure<Foo, COutSerializer>
+template <typename Context, typename T>
+class Field : public FieldBase
 {
-    lain::Field<C, int> a;
-    lain::Field<C, std::string> text;
+    public:
+        T value;
+
+        virtual void read(AbstractSerializer& s) override
+        {
+            s.as<typename Context::SerializerType>().read(value);
+        }
+
+        virtual void write(AbstractSerializer& s) override
+        {
+            s.as<typename Context::SerializerType>().write(value);
+        }
 };
+
+struct StructureStart {};
+struct StructureEnd {};
+
+template <typename _SerializerType>
+class Structure :
+    public AbstractField,
+    public ContainerBase
+{
+    public:
+        // This context typedef must be passed as a template
+        // argument to all fields in the container.
+        typedef struct {
+            typedef _SerializerType SerializerType;
+        } C;
+
+        Structure()
+        {
+            // Necessary to pop the current structure from the stack
+            //_lain_initDone();
+        }
+
+        void read(AbstractSerializer& s) override
+        {
+            std::for_each(_lain_fields.begin(), _lain_fields.end(),
+                    [&s](auto& it) { it->read(s); });
+        }
+
+        void write(AbstractSerializer& s) override
+        {
+            s.as<_SerializerType>().write(StructureStart());
+
+            std::for_each(_lain_fields.begin(), _lain_fields.end(),
+                    [&s](auto& it) { it->write(s); });
+
+            s.as<_SerializerType>().write(StructureEnd());
+        }
+};
+
+struct COutSerializer : public AbstractSerializer
+{
+    template <typename T>
+    void read(T& d) {
+        //...
+    }
+
+    template <typename T>
+    void write(const T& d) {
+        std::cout << d << "|";
+    }
+};
+
+template <>
+void COutSerializer::write<StructureStart>(const StructureStart& d)
+{
+    std::cout << "--- STRUCTURE START ---" << std::endl;
+}
+
+template <>
+void COutSerializer::write<StructureEnd>(const StructureEnd& d)
+{
+    std::cout << std::endl << "--- STRUCTURE END ---" << std::endl;
+}
 
 
 };
