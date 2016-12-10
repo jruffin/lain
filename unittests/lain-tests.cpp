@@ -5,25 +5,40 @@
 template <typename C>
 struct Foo
 {
-    lain::Field<C, int> a;
-    lain::Field<C, std::string> text;
+    lain::Field<C, int> a = {"a"};
+    lain::Field<C, std::string> text = {"text"};
 };
+
+struct Point
+{
+    int x;
+    int y;
+};
+
+namespace lain {
+    template <>
+    void COutSerializer::write<Point>(const std::string& name, const Point& p)
+    {
+        writeIndent();
+        std::cout << name << " = (" << p.x << "," << p.y << ")" << std::endl;
+    }
+}
 
 template <typename C>
 struct Bar
 {
-    lain::Field<C, std::string> before;
-    lain::Structure<C, Foo> foo;
-    lain::Field<C, std::string> after;
+    lain::Field<C, std::string> before = {"before"};
+    lain::Structure<C, Foo> foo = {"foo"};
+    lain::Field<C, std::string> after = {"after"};
+    lain::Field<C, Point> testPoint = {"testPoint"};
 };
 
-struct SomeOtherSerializer {};
 
 TEST_CASE("Simple structure")
 {
     typedef lain::MakeContext<lain::COutSerializer> Context;
 
-    lain::Structure<Context, Foo> a;
+    lain::Structure<Context, Foo> a("foo");
 
     a.a.value = 2;
     a.text.value = "Some text";
@@ -31,11 +46,14 @@ TEST_CASE("Simple structure")
     lain::COutSerializer s;
     a.write(s);
 
-    lain::Structure<Context, Bar> b;
+    lain::Structure<Context, Bar> b("bar");
+
     b.before.value = "before";
     b.after.value = "after";
     b.foo.a.value = 4;
     b.foo.text.value = "text";
+    b.testPoint.value.x = 42;
+    b.testPoint.value.y = 21;
 
     b.write(s);
 }

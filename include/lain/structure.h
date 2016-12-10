@@ -54,7 +54,7 @@ class ContainerBase
 
         void _lain_initDone()
         {
-            auto stack = getThreadContainerStack();
+            auto& stack = getThreadContainerStack();
             // Pop the current structure stack
             if (!stack.empty()) {
                 stack.pop();
@@ -81,6 +81,17 @@ struct FieldBase : public AbstractField
 {
     FieldBase()
     {
+        doRegistration();
+    }
+
+    FieldBase(const std::string& name)
+        : name(name)
+    {
+        doRegistration();
+    }
+
+    void doRegistration()
+    {
         auto stack = getThreadContainerStack();
         if (!stack.empty()) {
             stack.top()->_lain_addField(*this);
@@ -88,6 +99,8 @@ struct FieldBase : public AbstractField
     }
 
     virtual ~FieldBase() {}
+
+    std::string name;
 };
 
 template <typename Context, typename T>
@@ -96,6 +109,10 @@ class Field : public FieldBase
     public:
         T value;
 
+        Field() {}
+        Field(const std::string& name) : FieldBase(name) {}
+        Field(const std::string& name, const T& value) : FieldBase(name), value(value) {}
+
         virtual void read(AbstractSerializer& s) override
         {
             s.as<typename Context::SerializerType>().read(value);
@@ -103,7 +120,7 @@ class Field : public FieldBase
 
         virtual void write(AbstractSerializer& s) override
         {
-            s.as<typename Context::SerializerType>().write(value);
+            s.as<typename Context::SerializerType>().write(name, value);
         }
 };
 
@@ -116,6 +133,9 @@ class StructureBase :
     public ContainerBase
 {
     public:
+        StructureBase() {}
+        StructureBase(const std::string& name) : FieldBase(name) {}
+
         void read(AbstractSerializer& s) override
         {
             std::for_each(_lain_fields.begin(), _lain_fields.end(),
@@ -124,12 +144,12 @@ class StructureBase :
 
         void write(AbstractSerializer& s) override
         {
-            s.as<typename Context::SerializerType>().write(StructureStart());
+            s.as<typename Context::SerializerType>().write(name, StructureStart());
 
             std::for_each(_lain_fields.begin(), _lain_fields.end(),
                     [&s](auto& it) { it->write(s); });
 
-            s.as<typename Context::SerializerType>().write(StructureEnd());
+            s.as<typename Context::SerializerType>().write(name, StructureEnd());
         }
 };
 
@@ -139,6 +159,12 @@ struct Structure
   public StructureType<Context>
 {
     Structure()
+    {
+        StructureBase<Context>::_lain_initDone();
+    }
+
+    Structure(const std::string& name)
+        : StructureBase<Context>(name), StructureType<Context>()
     {
         StructureBase<Context>::_lain_initDone();
     }
@@ -153,21 +179,39 @@ struct COutSerializer : public AbstractSerializer
     }
 
     template <typename T>
-    void write(const T& d) {
-        std::cout << d << "|";
+    void write(const std::string& name, const T& d)
+    {
+        writeIndent();
+        std::cout << name << " = " << d << std::endl;
     }
+
+    COutSerializer()
+        : indent(0)
+    {
+    }
+
+    void writeIndent()
+    {
+        std::cout << std::string(indent, ' ');
+    }
+
+    size_t indent;
 };
 
 template <>
-void COutSerializer::write<StructureStart>(const StructureStart& d)
+void COutSerializer::write<StructureStart>(const std::string& name, const StructureStart& d)
 {
-    std::cout << std::endl << "--- STRUCTURE START ---" << std::endl;
+    writeIndent();
+    indent += 2;
+    std::cout << name << " {" << std::endl;
 }
 
 template <>
-void COutSerializer::write<StructureEnd>(const StructureEnd& d)
+void COutSerializer::write<StructureEnd>(const std::string& name, const StructureEnd& d)
 {
-    std::cout << std::endl << "--- STRUCTURE END ---" << std::endl;
+    indent = std::max((size_t) 0, indent-2);
+    writeIndent();
+    std::cout << "}" << std::endl;
 }
 
 
