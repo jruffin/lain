@@ -17,7 +17,7 @@ struct Point
 
 namespace lain {
     template <>
-    void COutSerializer::write<Point>(const std::string& name, const Point& p)
+    void COutOutputStream::put<Point>(const std::string& name, const Point& p)
     {
         writeIndent();
         std::cout << name << " = (" << p.x << "," << p.y << ")" << std::endl;
@@ -36,14 +36,17 @@ struct Bar
 
 TEST_CASE("Simple structure")
 {
-    typedef lain::MakeContext<lain::COutSerializer> Context;
+    typedef lain::MakeContext<
+        lain::NullInputStream,
+        lain::COutOutputStream
+            > Context;
 
     lain::Structure<Context, Foo> a("foo");
 
     a.a.value = 2;
     a.text.value = "Some text";
 
-    lain::COutSerializer s;
+    lain::COutOutputStream s;
     a.write(s);
 
     lain::Structure<Context, Bar> b("bar");
@@ -58,3 +61,12 @@ TEST_CASE("Simple structure")
     b.write(s);
 }
 
+
+/*
+ * Idea for later
+template <typename C>
+struct TestHeader
+{
+    lain::NumConstant<C, int, 2> version; // Version should be 2
+};
+*/

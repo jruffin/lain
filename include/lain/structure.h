@@ -17,15 +17,16 @@ static auto& getThreadContainerStack()
     return _stack;
 }
 
-template <typename Serializer>
+template <typename InputStream, typename OutputStream>
 struct MakeContext
 {
-    typedef Serializer SerializerType;
+    typedef InputStream InputStreamType;
+    typedef OutputStream OutputStreamType;
 };
 
-struct AbstractSerializer
+struct AbstractStream
 {
-    virtual ~AbstractSerializer() {}
+    virtual ~AbstractStream() {}
 
     template <typename T>
     T& as()
@@ -34,12 +35,17 @@ struct AbstractSerializer
     }
 };
 
+struct AbstractInputStream : public AbstractStream {};
+struct AbstractOutputStream : public AbstractStream {};
+
 struct AbstractField
 {
     virtual ~AbstractField() {}
 
-    virtual void read(AbstractSerializer&) = 0;
-    virtual void write(AbstractSerializer&) = 0;
+    virtual const std::string& getName() const = 0;
+
+    virtual void read(AbstractInputStream&) = 0;
+    virtual void write(AbstractOutputStream&) = 0;
 };
 
 class ContainerBase
@@ -85,7 +91,7 @@ struct FieldBase : public AbstractField
     }
 
     FieldBase(const std::string& name)
-        : name(name)
+        : _lain_name(name)
     {
         doRegistration();
     }
@@ -98,9 +104,14 @@ struct FieldBase : public AbstractField
         }
     }
 
+    const std::string& getName() const override
+    {
+        return _lain_name;
+    }
+
     virtual ~FieldBase() {}
 
-    std::string name;
+    std::string _lain_name;
 };
 
 template <typename Context, typename T>
@@ -113,14 +124,14 @@ class Field : public FieldBase
         Field(const std::string& name) : FieldBase(name) {}
         Field(const std::string& name, const T& value) : FieldBase(name), value(value) {}
 
-        virtual void read(AbstractSerializer& s) override
+        virtual void read(AbstractInputStream& s) override
         {
-            s.as<typename Context::SerializerType>().read(value);
+            s.as<typename Context::InputStreamType>().get(getName(), value);
         }
 
-        virtual void write(AbstractSerializer& s) override
+        virtual void write(AbstractOutputStream& s) override
         {
-            s.as<typename Context::SerializerType>().write(name, value);
+            s.as<typename Context::OutputStreamType>().put(getName(), value);
         }
 };
 
@@ -136,20 +147,26 @@ class StructureBase :
         StructureBase() {}
         StructureBase(const std::string& name) : FieldBase(name) {}
 
-        void read(AbstractSerializer& s) override
+        void read(AbstractInputStream& s) override
         {
+            StructureStart start;
+            s.as<typename Context::InputStreamType>().get(getName(), start);
+
             std::for_each(_lain_fields.begin(), _lain_fields.end(),
                     [&s](auto& it) { it->read(s); });
+
+            StructureEnd end;
+            s.as<typename Context::InputStreamType>().get(getName(), end);
         }
 
-        void write(AbstractSerializer& s) override
+        void write(AbstractOutputStream& s) override
         {
-            s.as<typename Context::SerializerType>().write(name, StructureStart());
+            s.as<typename Context::OutputStreamType>().put(getName(), StructureStart());
 
             std::for_each(_lain_fields.begin(), _lain_fields.end(),
                     [&s](auto& it) { it->write(s); });
 
-            s.as<typename Context::SerializerType>().write(name, StructureEnd());
+            s.as<typename Context::OutputStreamType>().put(getName(), StructureEnd());
         }
 };
 
@@ -170,8 +187,20 @@ struct Structure
     }
 };
 
+struct NullOutputStream : public AbstractOutputStream
+{
+    template <typename T>
+    void put(const std::string& name, const T& d) {}
+};
 
-struct COutSerializer : public AbstractSerializer
+struct NullInputStream : public AbstractInputStream
+{
+    template <typename T>
+    void get(const std::string& name, T& d) {}
+};
+
+
+struct COutOutputStream : public AbstractOutputStream
 {
     template <typename T>
     void read(T& d) {
@@ -179,13 +208,13 @@ struct COutSerializer : public AbstractSerializer
     }
 
     template <typename T>
-    void write(const std::string& name, const T& d)
+    void put(const std::string& name, const T& d)
     {
         writeIndent();
         std::cout << name << " = " << d << std::endl;
     }
 
-    COutSerializer()
+    COutOutputStream()
         : indent(0)
     {
     }
@@ -199,7 +228,7 @@ struct COutSerializer : public AbstractSerializer
 };
 
 template <>
-void COutSerializer::write<StructureStart>(const std::string& name, const StructureStart& d)
+void COutOutputStream::put<StructureStart>(const std::string& name, const StructureStart& d)
 {
     writeIndent();
     indent += 2;
@@ -207,7 +236,7 @@ void COutSerializer::write<StructureStart>(const std::string& name, const Struct
 }
 
 template <>
-void COutSerializer::write<StructureEnd>(const std::string& name, const StructureEnd& d)
+void COutOutputStream::put<StructureEnd>(const std::string& name, const StructureEnd& d)
 {
     indent = std::max((size_t) 0, indent-2);
     writeIndent();
