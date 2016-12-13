@@ -1,4 +1,5 @@
 #include <lain/structure.h>
+#include <lain/numtypes.h>
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
@@ -59,6 +60,18 @@ TEST_CASE("Simple structure")
     b.testPoint.value.y = 21;
 
     b.write(s);
+}
+
+template <typename C>
+struct SomeHeader
+{
+    lain::SignedInt<C, 15> foo;
+    lain::SignedInt<C, 15> bar;
+};
+
+
+TEST_CASE("Some header")
+{
 }
 
 
