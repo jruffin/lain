@@ -1,5 +1,11 @@
-#include <lain/structure.h>
+#include <lain/Structure.h>
+#include <lain/Context.h>
+#include <lain/COutOutputStream.h>
+#include <lain/StringInputStream.h>
+#include <lain/Field.h>
+#include <lain/Constant.h>
 #include <lain/numtypes.h>
+
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
@@ -63,15 +69,41 @@ TEST_CASE("Simple structure")
 }
 
 template <typename C>
-struct SomeHeader
+struct StructWithConstant
 {
-    lain::SignedInt<C, 15> foo;
-    lain::SignedInt<C, 15> bar;
+    lain::Constant<C, int> version = {"version", 20};
+    lain::Field<C, int> length = {"length", 0};
 };
 
 
-TEST_CASE("Some header")
+TEST_CASE("Struct with constant")
 {
+    typedef lain::MakeContext<
+        lain::StringInputStream,
+        lain::COutOutputStream
+            > Context;
+
+    lain::Structure<Context, StructWithConstant> s = {"s"};
+
+    SECTION ("Writing")
+    {
+        lain::COutOutputStream os;
+        s.write(os);
+    }
+
+    SECTION ("Reading with valid constant value")
+    {
+        lain::StringInputStream is("20 999");
+        s.read(is);
+        REQUIRE(s.version.value == 20);
+        REQUIRE(s.length.value == 999);
+    }
+
+    SECTION ("Reading with invalid constant value")
+    {
+        lain::StringInputStream is("-42 999");
+        REQUIRE_THROWS_AS(s.read(is), std::runtime_error);
+    }
 }
 
 

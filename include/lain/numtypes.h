@@ -1,4 +1,4 @@
-#include "structure.h"
+#include "Structure.h"
 
 namespace lain {
 
