@@ -2,8 +2,12 @@
 #include <lain/Context.h>
 #include <lain/COutOutputStream.h>
 #include <lain/StringInputStream.h>
+#include <lain/PackedBinaryStreams.h>
 #include <lain/Field.h>
 #include <lain/Constant.h>
+
+#include <vector>
+#include <iterator>
 
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
@@ -65,6 +69,72 @@ TEST_CASE("Simple structure")
     b.testPoint.value.y = 21;
 
     b.write(s);
+}
+
+template <typename C>
+struct SimpleStructure2
+{
+    lain::Field<C, int> a;
+    lain::Field<C, char> b;
+    lain::Field<C, short> c;
+};
+
+TEST_CASE("Simple Structure 2")
+{
+    typedef std::back_insert_iterator< std::vector<char> > VectorBackInserter;
+    typedef std::vector<char>::const_iterator VectorConstIterator;
+
+    typedef lain::MakeContext<
+        lain::PackedBinaryInputStream<VectorConstIterator>,
+        lain::PackedBinaryOutputStream<VectorBackInserter> > Context;
+
+    lain::Structure<Context, SimpleStructure2> s1;
+
+    SECTION ("Packed binary write")
+    {
+        s1.a.value = 111;
+        s1.b.value = 222;
+        s1.c.value = 333;
+
+        std::vector<char> output;
+        lain::PackedBinaryOutputStream<VectorBackInserter> os(std::back_inserter(output));
+        s1.write(os);
+
+        // Expected contents, all little-endian:
+        // 4 bytes A | 1 byte B | 2 bytes C
+        // 6F 00 00 00 DE 4D 01
+        std::vector<char> expected = { 0x6F, 0, 0, 0, (char) 0xDE, 0x4D, 0x01 };
+
+        REQUIRE(output == expected);
+    }
+
+    SECTION ("Packed binary read")
+    {
+        // Expected contents, all little-endian:
+        // 4 bytes A | 1 byte B | 2 bytes C
+        //   6521315 |       98 |      9265
+        //  E3 81 63 |       62 |     31 24
+        std::vector<char> input = { (char) 0xE3, (char) 0x81, 0x63, 0x00, 0x62, 0x31, 0x24 };
+
+        lain::PackedBinaryInputStream<VectorConstIterator> is(input.cbegin(), input.cend());
+
+        s1.read(is);
+
+        REQUIRE(s1.a.value == 6521315);
+        REQUIRE(s1.b.value == 98);
+        REQUIRE(s1.c.value == 9265);
+    }
+
+    SECTION ("Not enough bytes to read")
+    {
+        // This is too short to be entirely read, so it must fail
+        std::vector<char> input = { (char) 0xE3, (char) 0x81, 0x63, 0x00 };
+
+        lain::PackedBinaryInputStream<VectorConstIterator> is(input.cbegin(), input.cend());
+
+        REQUIRE_THROWS_AS(s1.read(is), std::runtime_error);
+    }
+
 }
 
 template <typename C>
