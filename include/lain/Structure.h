@@ -26,23 +26,23 @@ class StructureBase :
         void read(AbstractInputStream& s) override
         {
             StructureStart start;
-            s.as<typename Context::InputStreamType>().get(getName(), start);
+            toConcreteType<Context>(s).get(getName(), start);
 
             std::for_each(_lain_fields.begin(), _lain_fields.end(),
                     [&s](auto& it) { it->read(s); });
 
             StructureEnd end;
-            s.as<typename Context::InputStreamType>().get(getName(), end);
+            toConcreteType<Context>(s).get(getName(), end);
         }
 
         void write(AbstractOutputStream& s) override
         {
-            s.as<typename Context::OutputStreamType>().put(getName(), StructureStart());
+            toConcreteType<Context>(s).put(getName(), StructureStart());
 
             std::for_each(_lain_fields.begin(), _lain_fields.end(),
                     [&s](auto& it) { it->write(s); });
 
-            s.as<typename Context::OutputStreamType>().put(getName(), StructureEnd());
+            toConcreteType<Context>(s).put(getName(), StructureEnd());
         }
 };
 

@@ -4,7 +4,6 @@
 #include <lain/StringInputStream.h>
 #include <lain/Field.h>
 #include <lain/Constant.h>
-#include <lain/numtypes.h>
 
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"

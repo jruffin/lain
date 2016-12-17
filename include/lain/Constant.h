@@ -18,7 +18,7 @@ class Constant : public FieldBase
         virtual void read(AbstractInputStream& s) override
         {
             T readValue;
-            s.as<typename Context::InputStreamType>().get(getName(), readValue);
+            toConcreteType<Context>(s).get(getName(), readValue);
             if (readValue != value) {
                 std::stringstream ss;
                 ss  << "Constant " << getName() << " read from stream "
@@ -30,7 +30,7 @@ class Constant : public FieldBase
 
         virtual void write(AbstractOutputStream& s) override
         {
-            s.as<typename Context::OutputStreamType>().put(getName(), value);
+            toConcreteType<Context>(s).put(getName(), value);
         }
 
         const T value;

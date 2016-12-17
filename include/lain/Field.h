@@ -33,6 +33,18 @@ public:
 
     virtual ~FieldBase() {}
 
+    template <typename Context>
+    typename Context::InputStreamType& toConcreteType(AbstractInputStream& s, Context* =0)
+    {
+        return s.as<typename Context::InputStreamType>();
+    }
+
+    template <typename Context>
+    typename Context::OutputStreamType& toConcreteType(AbstractOutputStream& s, Context* =0)
+    {
+        return s.as<typename Context::OutputStreamType>();
+    }
+
 private:
     std::string _lain_name;
 };
@@ -50,12 +62,12 @@ public:
 
     virtual void read(AbstractInputStream& s) override
     {
-        s.as<typename Context::InputStreamType>().get(getName(), value);
+        toConcreteType<Context>(s).get(getName(), value);
     }
 
     virtual void write(AbstractOutputStream& s) override
     {
-        s.as<typename Context::OutputStreamType>().put(getName(), value);
+        toConcreteType<Context>(s).put(getName(), value);
     }
 };
 
