@@ -1,3 +1,13 @@
+/*
+ * Serialization Experiments Lain
+ *
+ * Copyright (C) 2016 Julien Ruffin and project contributors
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 #include <lain/Structure.h>
 #include <lain/Context.h>
 #include <lain/COutOutputStream.h>
@@ -6,6 +16,7 @@
 #include <lain/Field.h>
 #include <lain/Constant.h>
 
+#include <cstdint>
 #include <vector>
 #include <iterator>
 
@@ -74,9 +85,9 @@ TEST_CASE("Simple structure")
 template <typename C>
 struct SimpleStructure2
 {
-    lain::Field<C, int> a;
-    lain::Field<C, char> b;
-    lain::Field<C, short> c;
+    lain::Field<C, int32_t> a;
+    lain::Field<C, int8_t> b;
+    lain::Field<C, int16_t> c;
 };
 
 TEST_CASE("Simple Structure 2")
