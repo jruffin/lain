@@ -4,7 +4,7 @@ A schema-based, statically typed serialization DSL for C++.
 
 ## What is this?
 
-A data conversion library that tries to address the issue of serializing C++ data structures data arbitrary, customizable data formats and vice-versa.
+A data conversion library that tries to address the issue of serializing C++ data structures into arbitrary formats and vice-versa.
 
 Four things make it stand out:
 
@@ -18,7 +18,7 @@ The library uses the C++ type system as much as possible to ensure that the data
 
 ### Complete control over data formats
 
-Lain allows fine-grained control over the input and output data formats. It can be extended to support any existing format that can be represented as a byte stream.
+Lain allows fine-grained control over the input and output data formats. It can be extended to support any existing one that can be represented as a byte stream.
 
 ### Minimal
 
