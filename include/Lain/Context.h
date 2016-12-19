@@ -9,18 +9,14 @@
  */
 #pragma once
 
-namespace lain {
+namespace Lain {
 
-class ContainerBase;
-
-namespace internal {
-
-auto& getThreadContainerStack()
+template <typename InputStream, typename OutputStream>
+struct MakeContext
 {
-    static thread_local std::stack<ContainerBase*> _stack;
-    return _stack;
-}
-
+    typedef InputStream InputStreamType;
+    typedef OutputStream OutputStreamType;
 };
+
 };
 

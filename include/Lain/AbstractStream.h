@@ -9,7 +9,7 @@
  */
 #pragma once
 
-namespace lain {
+namespace Lain {
 
 struct AbstractStream
 {

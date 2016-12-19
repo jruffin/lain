@@ -11,7 +11,7 @@
 
 #include "ThreadContainerStack.h"
 
-namespace lain {
+namespace Lain {
 
 class AbstractField;
 
@@ -25,7 +25,7 @@ public:
         internal::getThreadContainerStack().push(this);
     }
 
-    void _lain_initDone()
+    void _Lain_initDone()
     {
         auto& stack = internal::getThreadContainerStack();
         // Pop the current structure stack
@@ -37,17 +37,17 @@ public:
 protected:
     friend class FieldBase;
 
-    void _lain_addField(AbstractField& f)
+    void _Lain_addField(AbstractField& f)
     {
-        _lain_fields.push_back(&f);
+        _Lain_fields.push_back(&f);
     }
 
     // TODO implement the operator= and such
-    // to *not* copy the contents of _lain_fields
+    // to *not* copy the contents of _Lain_fields
     // but reinitialize the list instead
 
 
-    std::list<AbstractField*> _lain_fields;
+    std::list<AbstractField*> _Lain_fields;
 };
 
 };

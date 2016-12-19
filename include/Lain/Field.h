@@ -12,7 +12,7 @@
 #include "ThreadContainerStack.h"
 #include "AbstractField.h"
 
-namespace lain {
+namespace Lain {
 
 class FieldBase : public AbstractField
 {
@@ -23,7 +23,7 @@ public:
     }
 
     FieldBase(const std::string& name)
-        : _lain_name(name)
+        : _Lain_name(name)
     {
         doRegistration();
     }
@@ -32,13 +32,13 @@ public:
     {
         auto stack = internal::getThreadContainerStack();
         if (!stack.empty()) {
-            stack.top()->_lain_addField(*this);
+            stack.top()->_Lain_addField(*this);
         }
     }
 
     const std::string& getName() const override
     {
-        return _lain_name;
+        return _Lain_name;
     }
 
     virtual ~FieldBase() {}
@@ -56,7 +56,7 @@ public:
     }
 
 private:
-    std::string _lain_name;
+    std::string _Lain_name;
 };
 
 

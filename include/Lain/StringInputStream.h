@@ -13,7 +13,7 @@
 #include <sstream>
 #include "AbstractStream.h"
 
-namespace lain {
+namespace Lain {
 
 class StringInputStream : public AbstractInputStream
 {

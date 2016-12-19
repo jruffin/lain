@@ -11,7 +11,7 @@
 
 #include "Structure.h"
 
-namespace lain {
+namespace Lain {
 
     namespace detail {
 

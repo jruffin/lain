@@ -13,7 +13,7 @@
 #include <iostream>
 #include "AbstractStream.h"
 
-namespace lain {
+namespace Lain {
 
 struct COutOutputStream : public AbstractOutputStream
 {

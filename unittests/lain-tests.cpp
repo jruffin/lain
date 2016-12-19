@@ -8,13 +8,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include <lain/Structure.h>
-#include <lain/Context.h>
-#include <lain/COutOutputStream.h>
-#include <lain/StringInputStream.h>
-#include <lain/PackedBinaryStreams.h>
-#include <lain/Field.h>
-#include <lain/Constant.h>
+#include <Lain/Structure.h>
+#include <Lain/Context.h>
+#include <Lain/COutOutputStream.h>
+#include <Lain/StringInputStream.h>
+#include <Lain/PackedBinaryStreams.h>
+#include <Lain/Field.h>
+#include <Lain/Constant.h>
 
 #include <cstdint>
 #include <vector>
@@ -26,8 +26,8 @@
 template <typename C>
 struct Foo
 {
-    lain::Field<C, int> a = {"a"};
-    lain::Field<C, std::string> text = {"text"};
+    Lain::Field<C, int> a = {"a"};
+    Lain::Field<C, std::string> text = {"text"};
 };
 
 struct Point
@@ -36,7 +36,7 @@ struct Point
     int y;
 };
 
-namespace lain {
+namespace Lain {
     template <>
     void COutOutputStream::put<Point>(const std::string& name, const Point& p)
     {
@@ -48,29 +48,29 @@ namespace lain {
 template <typename C>
 struct Bar
 {
-    lain::Field<C, std::string> before = {"before"};
-    lain::Structure<C, Foo> foo = {"foo"};
-    lain::Field<C, std::string> after = {"after"};
-    lain::Field<C, Point> testPoint = {"testPoint"};
+    Lain::Field<C, std::string> before = {"before"};
+    Lain::Structure<C, Foo> foo = {"foo"};
+    Lain::Field<C, std::string> after = {"after"};
+    Lain::Field<C, Point> testPoint = {"testPoint"};
 };
 
 
 TEST_CASE("Simple structure")
 {
-    typedef lain::MakeContext<
-        lain::NullInputStream,
-        lain::COutOutputStream
+    typedef Lain::MakeContext<
+        Lain::NullInputStream,
+        Lain::COutOutputStream
             > Context;
 
-    lain::Structure<Context, Foo> a("foo");
+    Lain::Structure<Context, Foo> a("foo");
 
     a.a.value = 2;
     a.text.value = "Some text";
 
-    lain::COutOutputStream s;
+    Lain::COutOutputStream s;
     a.write(s);
 
-    lain::Structure<Context, Bar> b("bar");
+    Lain::Structure<Context, Bar> b("bar");
 
     b.before.value = "before";
     b.after.value = "after";
@@ -85,9 +85,9 @@ TEST_CASE("Simple structure")
 template <typename C>
 struct SimpleStructure2
 {
-    lain::Field<C, int32_t> a;
-    lain::Field<C, int8_t> b;
-    lain::Field<C, int16_t> c;
+    Lain::Field<C, int32_t> a;
+    Lain::Field<C, int8_t> b;
+    Lain::Field<C, int16_t> c;
 };
 
 TEST_CASE("Simple Structure 2")
@@ -95,11 +95,11 @@ TEST_CASE("Simple Structure 2")
     typedef std::back_insert_iterator< std::vector<char> > VectorBackInserter;
     typedef std::vector<char>::const_iterator VectorConstIterator;
 
-    typedef lain::MakeContext<
-        lain::PackedBinaryInputStream<VectorConstIterator>,
-        lain::PackedBinaryOutputStream<VectorBackInserter> > Context;
+    typedef Lain::MakeContext<
+        Lain::PackedBinaryInputStream<VectorConstIterator>,
+        Lain::PackedBinaryOutputStream<VectorBackInserter> > Context;
 
-    lain::Structure<Context, SimpleStructure2> s1;
+    Lain::Structure<Context, SimpleStructure2> s1;
 
     SECTION ("Packed binary write")
     {
@@ -108,7 +108,7 @@ TEST_CASE("Simple Structure 2")
         s1.c.value = 333;
 
         std::vector<char> output;
-        lain::PackedBinaryOutputStream<VectorBackInserter> os(std::back_inserter(output));
+        Lain::PackedBinaryOutputStream<VectorBackInserter> os(std::back_inserter(output));
         s1.write(os);
 
         // Expected contents, all little-endian:
@@ -127,7 +127,7 @@ TEST_CASE("Simple Structure 2")
         //  E3 81 63 |       62 |     31 24
         std::vector<char> input = { (char) 0xE3, (char) 0x81, 0x63, 0x00, 0x62, 0x31, 0x24 };
 
-        lain::PackedBinaryInputStream<VectorConstIterator> is(input.cbegin(), input.cend());
+        Lain::PackedBinaryInputStream<VectorConstIterator> is(input.cbegin(), input.cend());
 
         s1.read(is);
 
@@ -141,7 +141,7 @@ TEST_CASE("Simple Structure 2")
         // This is too short to be entirely read, so it must fail
         std::vector<char> input = { (char) 0xE3, (char) 0x81, 0x63, 0x00 };
 
-        lain::PackedBinaryInputStream<VectorConstIterator> is(input.cbegin(), input.cend());
+        Lain::PackedBinaryInputStream<VectorConstIterator> is(input.cbegin(), input.cend());
 
         REQUIRE_THROWS_AS(s1.read(is), std::runtime_error);
     }
@@ -151,29 +151,29 @@ TEST_CASE("Simple Structure 2")
 template <typename C>
 struct StructWithConstant
 {
-    lain::Constant<C, int> version = {"version", 20};
-    lain::Field<C, int> length = {"length", 0};
+    Lain::Constant<C, int> version = {"version", 20};
+    Lain::Field<C, int> length = {"length", 0};
 };
 
 
 TEST_CASE("Struct with constant")
 {
-    typedef lain::MakeContext<
-        lain::StringInputStream,
-        lain::COutOutputStream
+    typedef Lain::MakeContext<
+        Lain::StringInputStream,
+        Lain::COutOutputStream
             > Context;
 
-    lain::Structure<Context, StructWithConstant> s = {"s"};
+    Lain::Structure<Context, StructWithConstant> s = {"s"};
 
     SECTION ("Writing")
     {
-        lain::COutOutputStream os;
+        Lain::COutOutputStream os;
         s.write(os);
     }
 
     SECTION ("Reading with valid constant value")
     {
-        lain::StringInputStream is("20 999");
+        Lain::StringInputStream is("20 999");
         s.read(is);
         REQUIRE(s.version.value == 20);
         REQUIRE(s.length.value == 999);
@@ -181,7 +181,7 @@ TEST_CASE("Struct with constant")
 
     SECTION ("Reading with invalid constant value")
     {
-        lain::StringInputStream is("-42 999");
+        Lain::StringInputStream is("-42 999");
         REQUIRE_THROWS_AS(s.read(is), std::runtime_error);
     }
 }
@@ -192,6 +192,6 @@ TEST_CASE("Struct with constant")
 template <typename C>
 struct TestHeader
 {
-    lain::NumConstant<C, int, 2> version; // Version should be 2
+    Lain::NumConstant<C, int, 2> version; // Version should be 2
 };
 */

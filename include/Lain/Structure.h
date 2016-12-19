@@ -19,7 +19,7 @@
 #include "AbstractStream.h"
 #include "Field.h"
 
-namespace lain {
+namespace Lain {
 
 struct StructureStart {};
 struct StructureEnd {};
@@ -38,7 +38,7 @@ class StructureBase :
             StructureStart start;
             toConcreteType<Context>(s).get(getName(), start);
 
-            std::for_each(_lain_fields.begin(), _lain_fields.end(),
+            std::for_each(_Lain_fields.begin(), _Lain_fields.end(),
                     [&s](auto& it) { it->read(s); });
 
             StructureEnd end;
@@ -49,7 +49,7 @@ class StructureBase :
         {
             toConcreteType<Context>(s).put(getName(), StructureStart());
 
-            std::for_each(_lain_fields.begin(), _lain_fields.end(),
+            std::for_each(_Lain_fields.begin(), _Lain_fields.end(),
                     [&s](auto& it) { it->write(s); });
 
             toConcreteType<Context>(s).put(getName(), StructureEnd());
@@ -63,13 +63,13 @@ struct Structure
 {
     Structure()
     {
-        StructureBase<Context>::_lain_initDone();
+        StructureBase<Context>::_Lain_initDone();
     }
 
     Structure(const std::string& name)
         : StructureBase<Context>(name), StructureType<Context>()
     {
-        StructureBase<Context>::_lain_initDone();
+        StructureBase<Context>::_Lain_initDone();
     }
 };
 

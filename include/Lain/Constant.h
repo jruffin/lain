@@ -14,7 +14,7 @@
 #include <stdexcept>
 #include "Field.h"
 
-namespace lain {
+namespace Lain {
 
 template <typename Context, typename T>
 class Constant : public FieldBase

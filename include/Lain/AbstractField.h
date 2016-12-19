@@ -11,7 +11,7 @@
 
 #include "AbstractStream.h"
 
-namespace lain {
+namespace Lain {
 
 struct AbstractField
 {
