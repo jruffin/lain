@@ -186,6 +186,76 @@ TEST_CASE("Struct with constant")
     }
 }
 
+TEST_CASE("Structure copying and moving")
+{
+    typedef Lain::MakeContext<
+        Lain::NullInputStream,
+        Lain::NullOutputStream
+            > Context;
+
+    SECTION ("Structure copying")
+    {
+        Lain::Structure<Context, SimpleStructure2> t = {"t"};
+        t.a.value = 1;
+        t.b.value = 2;
+        t.c.value = 3;
+
+        SECTION ("Copy constructor")
+        {
+            Lain::Structure<Context, SimpleStructure2> s(t);
+
+            REQUIRE(s.getName() == t.getName());
+            REQUIRE(s.a.value == t.a.value);
+            REQUIRE(s.b.value == t.b.value);
+            REQUIRE(s.c.value == t.c.value);
+        }
+
+        SECTION ("Copy assignment")
+        {
+            Lain::Structure<Context, SimpleStructure2> s = {"s"};
+            s = t;
+
+            REQUIRE(s.getName() == t.getName());
+            REQUIRE(s.a.value == t.a.value);
+            REQUIRE(s.b.value == t.b.value);
+            REQUIRE(s.c.value == t.c.value);
+        }
+    }
+
+    SECTION ("Structure moving")
+    {
+
+        auto f = []() {
+            Lain::Structure<Context, SimpleStructure2> t = {"t"};
+            t.a.value = 1;
+            t.b.value = 2;
+            t.c.value = 3;
+            return t;
+        };
+
+        SECTION ("Move constructor")
+        {
+            // The abusive std::move is here to avoid using RVA
+            Lain::Structure<Context, SimpleStructure2> s(std::move(f()));
+
+            REQUIRE(s.a.value == 1);
+            REQUIRE(s.b.value == 2);
+            REQUIRE(s.c.value == 3);
+        }
+
+        SECTION ("Move assignment")
+        {
+            Lain::Structure<Context, SimpleStructure2> s = {"s"};
+            s = f();
+
+            REQUIRE(s.a.value == 1);
+            REQUIRE(s.b.value == 2);
+            REQUIRE(s.c.value == 3);
+        }
+    }
+
+}
+
 
 /*
  * Idea for later

@@ -28,6 +28,22 @@ public:
         doRegistration();
     }
 
+    FieldBase(const FieldBase& rhs)
+        : _Lain_name(rhs._Lain_name)
+    {
+        doRegistration();
+    }
+
+    FieldBase& operator=(const FieldBase& rhs) = default;
+
+    FieldBase(FieldBase&& rhs)
+        : _Lain_name(std::move(rhs._Lain_name))
+    {
+        doRegistration();
+    }
+
+    FieldBase& operator=(FieldBase&& rhs) = default;
+
     void doRegistration()
     {
         auto stack = internal::getThreadContainerStack();

@@ -33,6 +33,12 @@ class StructureBase :
         StructureBase() {}
         StructureBase(const std::string& name) : FieldBase(name) {}
 
+        StructureBase(const StructureBase<Context>& rhs) = default;
+        StructureBase<Context>& operator=(const StructureBase<Context>& rhs) = default;
+
+        StructureBase(StructureBase<Context>&& rhs) = default;
+        StructureBase<Context>& operator=(StructureBase<Context>&& rhs) = default;
+
         void read(AbstractInputStream& s) override
         {
             StructureStart start;
@@ -71,6 +77,38 @@ struct Structure
     {
         StructureBase<Context>::_Lain_initDone();
     }
+
+    Structure(const Structure<Context, StructureType>& rhs)
+        : StructureBase<Context>(rhs), StructureType<Context>(rhs)
+    {
+        StructureBase<Context>::_Lain_initDone();
+    }
+
+    Structure<Context, StructureType>&
+        operator=(const Structure<Context, StructureType>& rhs)
+    {
+        static_cast<StructureBase<Context>&>(*this) = rhs;
+        static_cast<StructureType<Context>&>(*this) = rhs;
+
+        return *this;
+    }
+
+
+    Structure(Structure<Context, StructureType>&& rhs)
+        : StructureBase<Context>(std::move(rhs)), StructureType<Context>(std::move(rhs))
+    {
+        StructureBase<Context>::_Lain_initDone();
+    }
+
+    Structure<Context, StructureType>&
+        operator=(Structure<Context, StructureType>&& rhs)
+    {
+        static_cast<StructureBase<Context>&>(*this) = std::move(rhs);
+        static_cast<StructureType<Context>&>(*this) = std::move(rhs);
+
+        return *this;
+    }
+
 };
 
 
