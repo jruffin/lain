@@ -14,87 +14,131 @@
 
 namespace Lain {
 
-class FieldBase : public AbstractField
+// Base template interface for all fields with all three aspects
+template <typename Context, typename ContentType>
+struct Field :
+    public Named,
+    public Data<ContentType>,
+    public Serializable<Context>
+{
+    Field() {}
+    Field(const std::string& name) : Named(name) {}
+};
+
+template <typename Context, typename ContentType>
+class TypeErasedFieldHandle :
+    public FieldHandle
 {
 public:
-    FieldBase()
+    TypeErasedFieldHandle(Field<Context, ContentType>& f)
+        : field(&f)
     {
         doRegistration();
     }
 
-    FieldBase(const std::string& name)
-        : _Lain_name(name)
+    ~TypeErasedFieldHandle()
     {
-        doRegistration();
+        // TODO deregister if registered?
     }
 
-    FieldBase(const FieldBase& rhs)
-        : _Lain_name(rhs._Lain_name)
+    const std::string& getName() const override
     {
-        doRegistration();
+        return field->getName();
     }
 
-    FieldBase& operator=(const FieldBase& rhs) = default;
-
-    FieldBase(FieldBase&& rhs)
-        : _Lain_name(std::move(rhs._Lain_name))
+    void read(AbstractInputStream& s) override
     {
-        doRegistration();
+        field->read(dynamic_cast<typename Context::InputStreamType&>(s));
     }
 
-    FieldBase& operator=(FieldBase&& rhs) = default;
+    void write(AbstractOutputStream& s) override
+    {
+        field->write(dynamic_cast<typename Context::OutputStreamType&>(s));
+    }
+
+    void setField(Field<Context, ContentType>* f)
+    {
+        field = f;
+    }
+
+    const TypeErasedData* getTypeErasedData() const override
+    {
+        return dynamic_cast<TypeErasedData*>(field);
+    }
+
+    void copyContentsFrom(const FieldHandle& h)
+    {
+        const TypeErasedData* otherField = h.getTypeErasedData();
+        if (otherField) {
+            // XXX This is a total leap of faith!
+            // Make sure that the types are compatible when
+            // calling this method!
+            const Data<ContentType>* other = dynamic_cast<const Data<ContentType>*>(otherField);
+            field->setContents(other->getContents());
+        } else {
+            throw std::runtime_error("Handle field pointer empty!");
+        }
+    }
+
+
+private:
+    // Underlying field
+    Field<Context, ContentType>* field;
 
     void doRegistration()
     {
         auto stack = internal::getThreadContainerStack();
         if (!stack.empty()) {
-            stack.top()->_Lain_addField(*this);
+            stack.top()->addField(*this);
         }
     }
-
-    const std::string& getName() const override
-    {
-        return _Lain_name;
-    }
-
-    virtual ~FieldBase() {}
-
-    template <typename Context>
-    typename Context::InputStreamType& toConcreteType(AbstractInputStream& s, Context* =0)
-    {
-        return s.as<typename Context::InputStreamType>();
-    }
-
-    template <typename Context>
-    typename Context::OutputStreamType& toConcreteType(AbstractOutputStream& s, Context* =0)
-    {
-        return s.as<typename Context::OutputStreamType>();
-    }
-
-private:
-    std::string _Lain_name;
 };
 
 
 template <typename Context, typename T>
-class Field : public FieldBase
+class SimpleField : public Field<Context, T>
 {
 public:
     T value;
 
-    Field() {}
-    Field(const std::string& name) : FieldBase(name) {}
-    Field(const std::string& name, const T& value) : FieldBase(name), value(value) {}
+    SimpleField()
+        : handle(*this)
+    { }
 
-    virtual void read(AbstractInputStream& s) override
+    SimpleField(const std::string& name)
+        : Field<Context, T>(name), handle(*this)
+    { }
+
+    SimpleField(const std::string& name, const T& value)
+        : Field<Context, T>(name), value(value), handle(*this)
+    { }
+
+    ~SimpleField()
+    { }
+
+    virtual void read(typename Context::InputStreamType& s) override
     {
-        toConcreteType<Context>(s).get(getName(), value);
+        s.get(this->getName(), value);
     }
 
-    virtual void write(AbstractOutputStream& s) override
+    virtual void write(typename Context::OutputStreamType& s) override
     {
-        toConcreteType<Context>(s).put(getName(), value);
+        s.put(this->getName(), value);
     }
+
+    virtual T const& getContents() const override
+    {
+        return value;
+    }
+
+    virtual void setContents(T const & contents) override
+    {
+        value = contents;
+    }
+
+private:
+    TypeErasedFieldHandle<Context, T> handle;
+
 };
 
 };

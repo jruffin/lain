@@ -14,21 +14,21 @@
 
 namespace Lain {
 
-class AbstractField;
+class FieldHandle;
 
 class ContainerBase
 {
 public:
     ContainerBase()
     {
-        _Lain_pushContainerStack();
+        pushContainerStack();
     }
 
     // Note we do not copy anything from the other object
     // because the field list has to be rebuilt locally
     ContainerBase(const ContainerBase& rhs)
     {
-        _Lain_pushContainerStack();
+        pushContainerStack();
     }
 
     ContainerBase& operator=(const ContainerBase& rhs)
@@ -40,14 +40,14 @@ public:
     // because the field list has to be rebuilt locally
     ContainerBase(ContainerBase&& rhs)
     {
-        _Lain_pushContainerStack();
+        pushContainerStack();
     }
 
     // No need for this since the copy assignment does not
     // do anything either
     ContainerBase& operator=(ContainerBase&& rhs) = delete;
 
-    void _Lain_initDone()
+    void initDone()
     {
         auto& stack = internal::getThreadContainerStack();
 
@@ -60,23 +60,31 @@ public:
         }
     }
 
+    std::list<FieldHandle*> const& getFields() const
+    {
+        return fields;
+    }
+
 private:
-    void _Lain_pushContainerStack()
+    void pushContainerStack()
     {
         // Initialize the TLS, push this onto
         // the thread's current structure stack
         internal::getThreadContainerStack().push(this);
     }
 
-protected:
-    friend class FieldBase;
+    std::list<FieldHandle*> fields;
 
-    void _Lain_addField(AbstractField& f)
+
+protected:
+    template <typename Context, typename ContentType>
+    friend class TypeErasedFieldHandle;
+
+    void addField(FieldHandle& f)
     {
-        _Lain_fields.push_back(&f);
+        fields.push_back(&f);
     }
 
-    std::list<AbstractField*> _Lain_fields;
 };
 
 };

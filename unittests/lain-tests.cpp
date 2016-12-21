@@ -26,8 +26,8 @@
 template <typename C>
 struct Foo
 {
-    Lain::Field<C, int> a = {"a"};
-    Lain::Field<C, std::string> text = {"text"};
+    Lain::SimpleField<C, int> a = {"a"};
+    Lain::SimpleField<C, std::string> text = {"text"};
 };
 
 struct Point
@@ -48,10 +48,10 @@ namespace Lain {
 template <typename C>
 struct Bar
 {
-    Lain::Field<C, std::string> before = {"before"};
+    Lain::SimpleField<C, std::string> before = {"before"};
     Lain::Structure<C, Foo> foo = {"foo"};
-    Lain::Field<C, std::string> after = {"after"};
-    Lain::Field<C, Point> testPoint = {"testPoint"};
+    Lain::SimpleField<C, std::string> after = {"after"};
+    Lain::SimpleField<C, Point> testPoint = {"testPoint"};
 };
 
 
@@ -85,9 +85,9 @@ TEST_CASE("Simple structure")
 template <typename C>
 struct SimpleStructure2
 {
-    Lain::Field<C, int32_t> a;
-    Lain::Field<C, int8_t> b;
-    Lain::Field<C, int16_t> c;
+    Lain::SimpleField<C, int32_t> a = {"a"};
+    Lain::SimpleField<C, int8_t> b = {"b"};
+    Lain::SimpleField<C, int16_t> c = {"c"};
 };
 
 TEST_CASE("Simple Structure 2")
@@ -152,7 +152,7 @@ template <typename C>
 struct StructWithConstant
 {
     Lain::Constant<C, int> version = {"version", 20};
-    Lain::Field<C, int> length = {"length", 0};
+    Lain::SimpleField<C, int> length = {"length", 0};
 };
 
 
@@ -222,6 +222,7 @@ TEST_CASE("Structure copying and moving")
         }
     }
 
+    /*
     SECTION ("Structure moving")
     {
 
@@ -253,15 +254,49 @@ TEST_CASE("Structure copying and moving")
             REQUIRE(s.c.value == 3);
         }
     }
+    */
 
 }
 
-
-/*
- * Idea for later
-template <typename C>
-struct TestHeader
+TEST_CASE("Context switch")
 {
-    Lain::NumConstant<C, int, 2> version; // Version should be 2
-};
-*/
+    typedef Lain::MakeContext<
+        Lain::NullInputStream,
+        Lain::NullOutputStream
+            > Context1;
+
+    typedef Lain::MakeContext<
+        Lain::NullInputStream,
+        Lain::COutOutputStream
+            > Context2;
+
+    SECTION ("Simple structure")
+    {
+        Lain::Structure<Context1, SimpleStructure2> s1;
+
+        s1.a.value = 1;
+        s1.b.value = 2;
+        s1.c.value = 3;
+
+        SECTION ("Per copy constructor")
+        {
+            Lain::Structure<Context2, SimpleStructure2> s2(s1);
+
+            REQUIRE(s2.a.value == s1.a.value);
+            REQUIRE(s2.b.value == s1.b.value);
+            REQUIRE(s2.c.value == s1.c.value);
+        }
+
+        SECTION ("Per assignment operator")
+        {
+            Lain::Structure<Context2, SimpleStructure2> s2;
+
+            s2 = s1;
+
+            REQUIRE(s2.a.value == s1.a.value);
+            REQUIRE(s2.b.value == s1.b.value);
+            REQUIRE(s2.c.value == s1.c.value);
+        }
+    }
+}
+

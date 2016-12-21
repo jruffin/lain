@@ -26,40 +26,80 @@ struct StructureEnd {};
 
 template <typename Context>
 class StructureBase :
-    public FieldBase,
-    public ContainerBase
+    public Field< Context, std::list<FieldHandle*> >
 {
-    public:
-        StructureBase() {}
-        StructureBase(const std::string& name) : FieldBase(name) {}
+public:
+    StructureBase() : handle(*this) {}
+    StructureBase(const std::string& name)
+        : Field< Context, std::list<FieldHandle*> >(name),
+          handle(*this)
+    {
+    }
 
-        StructureBase(const StructureBase<Context>& rhs) = default;
-        StructureBase<Context>& operator=(const StructureBase<Context>& rhs) = default;
+    StructureBase(const StructureBase<Context>& rhs) = default;
+    StructureBase<Context>& operator=(const StructureBase<Context>& rhs) = default;
 
-        StructureBase(StructureBase<Context>&& rhs) = default;
-        StructureBase<Context>& operator=(StructureBase<Context>&& rhs) = default;
+    StructureBase(StructureBase<Context>&& rhs) = default;
+    StructureBase<Context>& operator=(StructureBase<Context>&& rhs) = default;
 
-        void read(AbstractInputStream& s) override
-        {
-            StructureStart start;
-            toConcreteType<Context>(s).get(getName(), start);
+    void read(typename Context::InputStreamType & s) override
+    {
+        StructureStart start;
+        s.get(this->getName(), start);
 
-            std::for_each(_Lain_fields.begin(), _Lain_fields.end(),
-                    [&s](auto& it) { it->read(s); });
+        auto& fields = containerBase.getFields();
 
-            StructureEnd end;
-            toConcreteType<Context>(s).get(getName(), end);
+        std::for_each(fields.begin(), fields.end(),
+                [&s](auto& it) { it->read(s); });
+
+        StructureEnd end;
+        s.get(this->getName(), end);
+    }
+
+    void write(typename Context::OutputStreamType& s) override
+    {
+        s.put(this->getName(), StructureStart());
+
+        auto& fields = containerBase.getFields();
+
+        std::for_each(fields.begin(), fields.end(),
+                [&s](auto& it) { it->write(s); });
+
+        s.put(this->getName(), StructureEnd());
+    }
+
+    std::list<FieldHandle*> const& getContents() const override
+    {
+        // The data that the other structure really
+        // needs to copy us is actually the field list.
+        return containerBase.getFields();
+    }
+
+    void setContents(std::list<FieldHandle*> const& c) override
+    {
+        std::list<FieldHandle*>::const_iterator sourceIt;
+        std::list<FieldHandle*>::const_iterator destIt;
+
+        auto& fields = containerBase.getFields();
+
+        assert(c.size() == fields.size());
+
+        for (sourceIt = c.cbegin(), destIt = fields.begin();
+                sourceIt != c.cend() && destIt != fields.end();
+                ++sourceIt, ++destIt) {
+            // Copy the contents
+            (*destIt)->copyContentsFrom(**sourceIt);
         }
 
-        void write(AbstractOutputStream& s) override
-        {
-            toConcreteType<Context>(s).put(getName(), StructureStart());
+    }
 
-            std::for_each(_Lain_fields.begin(), _Lain_fields.end(),
-                    [&s](auto& it) { it->write(s); });
+protected:
+    // These two members MUST be declared in EXACTLY THAT ORDER,
+    // otherwise the structure registers itself as a field of itself
+    // with hilariously recursive results.
+    TypeErasedFieldHandle<Context, std::list<FieldHandle*> > handle;
+    ContainerBase containerBase;
 
-            toConcreteType<Context>(s).put(getName(), StructureEnd());
-        }
 };
 
 template <typename Context, template <typename> typename StructureType>
@@ -67,47 +107,63 @@ struct Structure
 : public StructureBase<Context>,
   public StructureType<Context>
 {
+public:
     Structure()
     {
-        StructureBase<Context>::_Lain_initDone();
+        StructureBase<Context>::containerBase.initDone();
     }
 
     Structure(const std::string& name)
         : StructureBase<Context>(name), StructureType<Context>()
     {
-        StructureBase<Context>::_Lain_initDone();
+        StructureBase<Context>::containerBase.initDone();
     }
 
-    Structure(const Structure<Context, StructureType>& rhs)
-        : StructureBase<Context>(rhs), StructureType<Context>(rhs)
+    // This allows assigning from a structure of the same type
+    // but with a different context. Context switching.
+    template <typename OtherContext>
+    Structure(const Structure<OtherContext, StructureType>& rhs)
+    : StructureBase<Context>(rhs.getName()), StructureType<Context>()
     {
-        StructureBase<Context>::_Lain_initDone();
+        StructureBase<Context>::containerBase.initDone();
+        this->setContents(rhs.getContents());
     }
 
+    // Assignment within the same context,
+    // basically a special case.
+    Structure(const Structure<Context, StructureType>& rhs)
+        : StructureBase<Context>(rhs.getName()), StructureType<Context>()
+    {
+        StructureBase<Context>::containerBase.initDone();
+        this->setContents(rhs.getContents());
+    }
+
+    // This allows assigning from a structure of the same type
+    // but with a different context. Context switching.
+    template <typename OtherContext>
+    Structure<Context, StructureType>&
+        operator=(const Structure<OtherContext, StructureType>& rhs)
+    {
+        this->setName(rhs.getName());
+        this->setContents(rhs.getContents());
+        return *this;
+    }
+
+    // Assignment within the same context,
+    // basically a special case.
     Structure<Context, StructureType>&
         operator=(const Structure<Context, StructureType>& rhs)
     {
-        static_cast<StructureBase<Context>&>(*this) = rhs;
-        static_cast<StructureType<Context>&>(*this) = rhs;
-
+        this->setName(rhs.getName());
+        this->setContents(rhs.getContents());
         return *this;
     }
 
 
-    Structure(Structure<Context, StructureType>&& rhs)
-        : StructureBase<Context>(std::move(rhs)), StructureType<Context>(std::move(rhs))
-    {
-        StructureBase<Context>::_Lain_initDone();
-    }
-
+    // No move semantics are possible here. Yet.
+    Structure(Structure<Context, StructureType>&& rhs) = delete;
     Structure<Context, StructureType>&
-        operator=(Structure<Context, StructureType>&& rhs)
-    {
-        static_cast<StructureBase<Context>&>(*this) = std::move(rhs);
-        static_cast<StructureType<Context>&>(*this) = std::move(rhs);
-
-        return *this;
-    }
+        operator=(Structure<Context, StructureType>&& rhs) = delete;
 
 };
 
